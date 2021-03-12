@@ -3,7 +3,7 @@
 
 %%% CR 
 
-role controlroom(CR, DR, ASS: agent,
+role controlroom(CR, DR, GSS: agent,
                 H: hash_func, 
 	Snd, Rcv: channel(dy)) 
 
@@ -26,9 +26,9 @@ transition
 1.State = 0 /\ Rcv(start) =|>
 State' := 1 /\ Rcr' := new() /\ Pubcr' := F(Rcr'.G)
             /\ Rdrj' := new() /\ RTSdrj' := new()
-            /\ Pubdrj’ := F(Rdrj'.G)
+            /\ Pubdrj' := F(Rdrj'.G)
             /\ TCdrj' := H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj')
-            /\ Certdrj’ := Add(Rdrj'.H(Pubdrj'.Pubcr'.IDgss).Rcr')
+            /\ Certdrj' := Add(Rdrj'.H(Pubdrj'.Pubcr'.IDgss).Rcr')
 %%% Send registration message to DRj via secure channel
             /\ Snd({IDdrj.IDgss.TCdrj'.Certdrj'}_SKcrdr)
             /\ secret({Rcr',Rdrj',RTSdrj',MKdrj}, sp1, {CR})
@@ -36,10 +36,10 @@ State' := 1 /\ Rcr' := new() /\ Pubcr' := F(Rcr'.G)
 %%% GSS registration phase
     /\ Rgss' := new() /\ Pubgss' := F(Rgss'.G)
     /\ RTSgss' := new()
-    /\ TCgss' := H(IDgss.IDcr.Rgss'.RTSgss’)
-    /\ Certgss' := Add(Rgss'.H(IDgss.Pubgss'.Pubcr’).Rcr’)
+    /\ TCgss' := H(IDgss.IDcr.Rgss'.RTSgss')
+    /\ Certgss' := Add(Rgss'.H(IDgss.Pubgss'.Pubcr').Rcr')
     %%% Send registration message to the GSS via secure channel
-    /\ Snd({IDdrj.IDgss.TCgss'.Certgss’}_SKcrgss)
+    /\ Snd({IDdrj.IDgss.TCgss'.Certgss'}_SKcrgss)
     /\ secret({RTSgss',Rgss'}, sp2, {CR})
     end role
 
@@ -55,8 +55,8 @@ local State: nat,
     %%% F is ECC point mutiplication operation
     F, Add, Poly: hash_func,
     G, MKdrj, Rdrj, Pubdrj : text,
-    IDdrj, IDgss, IDcr, RTSdrj, RCr, Rdr, TSdr, Adr: text,
-    Adr1, Rgss, RTSgss, TSgss, BGss, Rgss1: text,
+    IDdrj, IDgss, IDcr, RTSdrj, Rcr, Rdr, TSdr, Adr: text,
+    Adr1, Rgss, RTSgss, TSgss, Bgss, Rgss1: text,
     TSdr1, ACKdrgss: text
 const sp1, sp2, dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1, gss_dr_rgss1, gss_dr_tsgss : protocol_id
 
@@ -64,17 +64,17 @@ init State := 0
 transition
 %%%Drone registration phase
 %%%Receive registration message securely from the CR
-1. State = 0 /\ Rev({IDdrj.IDgss.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').
+1. State = 0 /\ Rcv({IDdrj.IDgss.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').
                 Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr) =|>
 State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, sp1, {CR})
 
 %%% Access control phase
     /\ Rdr' := new() /\ TSdr' := new()
-    /\ Adr' := H(IDdrj-H(MKdrj.IDdrj.IDcr-IDgss.RTSdrj').Rdr’.TSdr’)
-    /\ Adr1' := F(Adr’.G)
+    /\ Adr' := H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr')
+    /\ Adr1' := F(Adr'.G)
 
 %%% Send message Msg1 to GSS via public channel
-    /\ Snd(IDdrj.Adr1'.Add(Rdrj'.H(F(Rdrj'.G).F(Rcr’.G).IDgss).Rcr').TSdr')
+    /\ Snd(IDdrj.Adr1'.Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSdr')
 
 %% DRj has freshly generated the values rdrk and TSdrk for GSS that are induded in Msg1
     /\ witness(DR, GSS, dr_gss_rdr, Rdr')
@@ -82,16 +82,16 @@ State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, sp1, {CR})
 
 %%% Receive message Msg2 from the GSS via public channel
 2. State = 2 /\ Rcv(IDgss.F(H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss').G).
-                H(H(F(Bgss'.F(H(IDdrj H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
+                H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
                 Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr).
                 Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'. TSgss').
                 F(H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss').G).TSgss'.IDgss).
                 TSgss'.Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr')) =|>
 
 State' := 4 /\ TSdr1' := new()
-        /\ ACKdrgss’ := H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G)).
+        /\ ACKdrgss' := H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G)).
             Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
-            Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr').TSdr' TSgss').TSdr1')
+            Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr').TSdr'.TSgss').TSdr1')
 
 %%% Send message Msqg3 to GSS via public channel
         /\ Snd(ACKdrgss'.TSdr1')
@@ -128,22 +128,22 @@ init State := 0
 transition
 %%% GSS registration phase
 %%% receive registration message securely from the CR
-1. State = 0 /\ Rev({IDdrj.IDgss. H(IDgss.IDcr.Rgss'.RTSgss').
-                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr’.G)).Rcr’)}_SKcrgss) =|>
+1. State = 0 /\ Rcv({IDdrj.IDgss. H(IDgss.IDcr.Rgss'.RTSgss').
+                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr')}_SKcrgss) =|>
 State' := 3 /\ secret({RTSgss',Rgss'}, sp2, {CR})
 
 %%% Access control phase
 %%% Receive message Msq1 from the DRj via public channel
-2. State = 3 /\ Rev(IDdrj.F(H(Ddrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G).
-                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr’.G).IDgss).Rcr').TSdr')=|>
+2. State = 3 /\ Rcv(IDdrj.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G).
+                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSdr')=|>
 State' := 5 /\ Rgss1' := new() /\ TSgss' := new()
             /\ Bgss' := H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss')
             /\ Bgss12' := F(Bgss'.G)
-            /\ Dkgss' := F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G))
+            /\ DKgss' := F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G))
             /\ SKgssdr' := H(DKgss'.Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
                 Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'.TSgss')
 
-            /\ SKVgssdr’ := H(SKgssdr'.Bgss12'.TSgss'.IDgss)
+            /\ SKVgssdr' := H(SKgssdr'.Bgss12'.TSgss'.IDgss)
 %%% Send message Msg? to the drone via public channel
             /\ Snd(IDgss.Bgss12'.SKVgssdr'.TSgss'.Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'))
 %% GSS has freshly generated the values rgss1 and TSgss for DRj that are induded in Msg2
@@ -151,7 +151,7 @@ State' := 5 /\ Rgss1' := new() /\ TSgss' := new()
             /\ witness(GSS, DR, gss_dr_tsgss, TSgss')
 
 %%% Receive message Msg3 from the drone via public channel
-3. State = 5 /\ Rev(H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
+3. State = 5 /\ Rcv(H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
                 Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
                 Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'.TSgss').TSdr1').TSdr1') =|>
 
@@ -196,6 +196,6 @@ secrecy_of sp1, sp2
 
 %%% Authentication
 authentication_on dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1
-lauthentication_on gss_dr_rgss1, gss_dr_tsgss
+authentication_on gss_dr_rgss1, gss_dr_tsgss
 end goal
 environment()
