@@ -51,8 +51,7 @@ const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : 
 init State := 0
 transition
 
-%%%Drone registration phase
-%%%Receive registration message securely from the CR
+%%%Receive registration message from CR
 
 1. State = 0 /\ Rcv({IDdrj1.IDgss.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').
                 Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr1) =|>
@@ -61,14 +60,13 @@ State' := 2 /\ Rj1' := new() /\ TSj1' := new()
             /\ AAj1' := F(Aj1'.G)
             /\ Msgd2d1' := IDdrj1.AAj1'.Add(Rdrj'.H(F(Rdrj'.G).IDgss.F(Rcr'.G)).Rcr').TSj1'
 
-%%% Send message Msg1 to GSS via public channel
+%%% Send message Msg1 to DR2
     /\ Snd(Msgd2d1')
 
-%% DRj has freshly generated the values rdrj and TSdrj for GSS that are induded in Msg1
     /\ witness(DR1, DR2, dr1_dr2_rj1, Rj1')
     /\ witness(DR1, DR2, dr1_dr2_tsj1, TSj1')
 
-%%% Receive message Msg2 from the Drone2 via public channel
+%%% Receive message Msg2 from the DR2
 2. State = 2 /\ Rcv(IDdrj2.F(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).
                 H(H(F(Bj2'.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G)).
                 Poly(IDdrj2.IDdrj1). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr).
@@ -81,13 +79,10 @@ State' := 4 /\ TSj3' := new()
             Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
             Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj3')
 
-%%% Send message Msg3 to GSS via public channel
+%%% Send message Msg3 to DR2
         /\ Snd(ACKj1j2'.TSj3')
 
-%% DRj has freshly generated the value TSdr1 for GSS that is included in Msg3
         /\ witness(DR1, DR2, dr1_dr2_tsj3, TSj3')
-
-% DRj's acceptance of the values rgss1, TSgss (message Msq2) for GSS by DRj
         /\ request(DR2, DR1, dr2_dr1_rj2, Rj2')
         /\ request(DR2, DR1, dr2_dr1_tsj2, TSj2')
         
@@ -104,7 +99,6 @@ played_by DR2
 def=
 local State: nat,
     SKcrdr: symmetric_key,
-    %%% F is ECC point mutiplication operation
     F, Add, Poly: hash_func,
     G, MKdrj, Rj1, Rdrj, IDdrj1, IDdrj2, IDgss, IDcr, Rcr, DKj2j1, SKj2j1: text,
     TSj2, Bj2, Bsmallj2, Rj2, Rdr, Msgd1d2, MKdrj1, RTSdrj, SKVj2j1, TSj1: text
@@ -112,13 +106,14 @@ const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2 : protocol_id
 
 init State := 0
 transition
-%%%Drone registration phase
-%%%Receive registration message securely from the CR
+
+%%%Receive registration message CR
+
 1. State = 0 /\ Rcv({IDdrj2.IDgss.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').
                 Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr) =|>
 State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, sp1, {CR})
 
-%%% Receive message Msg1 from the DR1 via public channel
+%%% Receive message Msg1 from the DR1
 2. State = 3 /\ Rcv(IDdrj1.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1').G).
                 Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSj1')=|>
 State' := 5 /\ Rj2' := new() /\ TSj2' := new()
@@ -130,21 +125,20 @@ State' := 5 /\ Rj2' := new() /\ TSj2' := new()
 
             /\ SKVj2j1' := H(SKj2j1'.Bj2'.TSj2'.IDdrj2)
             /\ Msgd1d2' := IDdrj2.Bj2'.SKVj2j1'.TSj2'.Add(Rj2'.H(IDdrj2.F(Rj2'.G).F(Rcr'.G)).Rcr')
-%%% Send message Msg2 to the drone via public channel
+
+%%% Send message Msg2 to DR1
             /\ Snd(Msgd1d2')
-%% Drone 2 has freshly generated the values rgss1 and TSgss for DRj that are induded in Msg2
+
             /\ witness(DR2, DR1, dr2_dr1_rj2, Rj2')
             /\ witness(DR2, DR1, dr2_dr1_tsj2, TSj2')
 
-%%% Receive message Msg3 from the drone via public channel
+%%% Receive message Msg3 from DR1
 3. State = 5 /\ Rcv(H(H(F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
                 Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
                 Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj1').TSj1') =|>
 
-% GSS's acceptance of the values rdr, TSdr (message Msg1) and TSdr1 (message Msg3) for GSS by DRj
-
 State' := 7 /\ request(DR1, DR2, dr1_dr2_rj1, Rj1')
-        /\ request(DR1, DR2, dr1_dr2_tsj1, TSj1')
+            /\ request(DR1, DR2, dr1_dr2_tsj1, TSj1')
 end role
 
 
@@ -177,11 +171,11 @@ def=
     end role
 goal
 
-%%% Confidentiality (privacy)
-secrecy_of sp1, sp2
-
 %%% Authentication
 authentication_on dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_tsj2, dr2_dr1_rj2, dr1_dr2_tsj3
+
+%%% Confidentiality
+secrecy_of sp1, sp2
 
 end goal
 
