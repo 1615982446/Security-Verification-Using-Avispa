@@ -1,201 +1,188 @@
-%%% Implementalion of the scheme: 
-%%% Designing secure blockchain.baud access control scheme In IoT-enabled Internet of Drones deployment 
+%%% Blockchain-based access control scheme in IoT-enabled Internet of Drones
 
-%%% CR 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Control Room %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-role controlroom(CR, DR, GSS: agent,
-                H: hash_func, 
-	Snd, Rcv: channel(dy)) 
-
-% Player: CR 
+role controlroom(CR, DRj1, DRj2: agent, H: hash_func,  Snd, Rcv: channel(dy)) 
 
 played_by CR
 def= 
 local State: nat,
-    SKcrdr, SKcrgss: symmetric_key, 
-    %%% F is ECC point mutiplicatIon operator 
+    SKcrdr1, SKcrdr2: symmetric_key, 
     F, Add: hash_func, 
-    Rcr, Pubcr, RTSdrj, TCdrj, IDdrj, IDcr, IDgss, Certdrj, Certgss: text,
-    G, MKdrj, Rdrj, Pubdrj, Rgss, Pubgss, RTSgss, TCgss: text
-const spl, sp2: protocol_id 
+    Rcr, Pubcr, RTSdrj1, RTSdrj2, TCdrj1, TCdrj2, IDdrj1, IDdrj2, IDcr, Certdrj1, IDgss, Certdrj2: text,
+    G, MKdrj1, MKdrj2, Rdrj1, Rdrj2, Pubdrj1, Pubdrj2: text
+const sp1, sp2: protocol_id 
 
 init State := 0
 transition
 
 %%%Drone registration phase 
-1.State = 0 /\ Rcv(start) =|>
-State' := 1 /\ Rcr' := new() /\ Pubcr' := F(Rcr'.G)
-            /\ Rdrj' := new() /\ RTSdrj' := new()
-            /\ Pubdrj' := F(Rdrj'.G)
-            /\ TCdrj' := H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj')
-            /\ Certdrj' := Add(Rdrj'.H(Pubdrj'.Pubcr'.IDgss).Rcr')
-%%% Send registration message to DRj via secure channel
-            /\ Snd({IDdrj.IDgss.TCdrj'.Certdrj'}_SKcrdr)
-            /\ secret({Rcr',Rdrj',RTSdrj',MKdrj}, sp1, {CR})
 
-%%% GSS registration phase
-    /\ Rgss' := new() /\ Pubgss' := F(Rgss'.G)
-    /\ RTSgss' := new()
-    /\ TCgss' := H(IDgss.IDcr.Rgss'.RTSgss')
-    /\ Certgss' := Add(Rgss'.H(IDgss.Pubgss'.Pubcr').Rcr')
-    %%% Send registration message to the GSS via secure channel
-    /\ Snd({IDdrj.IDgss.TCgss'.Certgss'}_SKcrgss)
-    /\ secret({RTSgss',Rgss'}, sp2, {CR})
+1.State = 0 /\ Rcv(start) =|>
+State' := 1 /\ Rcr' := new() /\ Pubcr' := F(Rcr'.G) /\ IDgss' := new()
+            /\ Rdrj1' := new() /\ RTSdrj1' := new() /\ Pubdrj1' := F(Rdrj1'.G)
+            /\ TCdrj1' := H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj1')
+            /\ Certdrj1' := Add(Rdrj1'.H(Pubdrj1'.Pubcr'.IDgss).Rcr')
+%%% Send registration message to DR1
+            /\ Snd({IDdrj1.IDgss.TCdrj1'.Certdrj1'}_SKcrdr1)
+            /\ secret({Rcr',Rdrj1',RTSdrj1',MKdrj1}, sp1, {CR})
+
+            /\ Rdrj2' := new() /\ RTSdrj2' := new() /\ Pubdrj2' := F(Rdrj2'.G)
+            /\ TCdrj2' := H(MKdrj2.IDdrj2.IDcr.IDgss.RTSdrj2')
+            /\ Certdrj2' := Add(Rdrj2'.H(Pubdrj2'.Pubcr'.IDgss).Rcr')
+%%% Send registration message to DR1
+            /\ Snd({IDdrj2.IDgss.TCdrj2'.Certdrj2'}_SKcrdr2)
+            /\ secret({Rcr',Rdrj2',RTSdrj2',MKdrj2}, sp2, {CR})
+
     end role
 
-%%% Drone DRj
-role drone(CR, DR, GSS: agent,
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role drone1(CR, DR1, DR2: agent, H: hash_func, Snd, Rcv: channel(dy))
+
+played_by DR1
+def=
+local State: nat,
+    SKcrdr1: symmetric_key,
+    F, Add, Poly: hash_func,
+    G, MKdrj, Rj1, Rdrj, TSj1, IDdrj1, IDdrj2, IDgss, IDcr, RTSdrj, Rcr, Aj1, AAj1, Rdr, Msgd2d1: text,
+    Rj2, TSj2, TSj3, Bj2, ACKj1j2: text
+const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
+
+init State := 0
+transition
+
+%%%Drone registration phase
+%%%Receive registration message securely from the CR
+
+1. State = 0 /\ Rcv({IDdrj1.IDgss.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').
+                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr1) =|>
+State' := 2 /\ Rj1' := new() /\ TSj1' := new()
+            /\ Aj1' := H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1')
+            /\ AAj1' := F(Aj1'.G)
+            /\ Msgd2d1' := IDdrj1.AAj1'.Add(Rdrj'.H(F(Rdrj'.G).IDgss.F(Rcr'.G)).Rcr').TSj1'
+
+%%% Send message Msg1 to GSS via public channel
+    /\ Snd(Msgd2d1')
+
+%% DRj has freshly generated the values rdrj and TSdrj for GSS that are induded in Msg1
+    /\ witness(DR1, DR2, dr1_dr2_rj1, Rj1')
+    /\ witness(DR1, DR2, dr1_dr2_tsj1, TSj1')
+
+%%% Receive message Msg2 from the Drone2 via public channel
+2. State = 2 /\ Rcv(IDdrj2.F(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).
+                H(H(F(Bj2'.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G)).
+                Poly(IDdrj2.IDdrj1). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr).
+                Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr'). TSj1'. TSj2').
+                F(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).TSj2'.IDdrj2).
+                TSj2'.Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr')) =|>
+
+State' := 4 /\ TSj3' := new()
+        /\ ACKj1j2' := H(H(F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
+            Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
+            Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj3')
+
+%%% Send message Msg3 to GSS via public channel
+        /\ Snd(ACKj1j2'.TSj3')
+
+%% DRj has freshly generated the value TSdr1 for GSS that is included in Msg3
+        /\ witness(DR1, DR2, dr1_dr2_tsj3, TSj3')
+
+% DRj's acceptance of the values rgss1, TSgss (message Msq2) for GSS by DRj
+        /\ request(DR2, DR1, dr2_dr1_rj2, Rj2')
+        /\ request(DR2, DR1, dr2_dr1_tsj2, TSj2')
+        
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role drone2(CR, DR1, DR2: agent,
             H: hash_func,
             Snd, Rcv: channel(dy))
 % Player: Drone DRj
-played_by DR
+
+played_by DR2
 def=
 local State: nat,
     SKcrdr: symmetric_key,
     %%% F is ECC point mutiplication operation
     F, Add, Poly: hash_func,
-    G, MKdrj, Rdrj, Pubdrj : text,
-    IDdrj, IDgss, IDcr, RTSdrj, Rcr, Rdr, TSdr, Adr: text,
-    Adr1, Rgss, RTSgss, TSgss, Bgss, Rgss1: text,
-    TSdr1, ACKdrgss: text
-const sp1, sp2, dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1, gss_dr_rgss1, gss_dr_tsgss : protocol_id
+    G, MKdrj, Rj1, Rdrj, IDdrj1, IDdrj2, IDgss, IDcr, Rcr, DKj2j1, SKj2j1: text,
+    TSj2, Bj2, Bsmallj2, Rj2, Rdr, Msgd1d2, MKdrj1, RTSdrj, SKVj2j1, TSj1: text
+const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2 : protocol_id
 
 init State := 0
 transition
 %%%Drone registration phase
 %%%Receive registration message securely from the CR
-1. State = 0 /\ Rcv({IDdrj.IDgss.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').
+1. State = 0 /\ Rcv({IDdrj2.IDgss.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').
                 Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr) =|>
 State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, sp1, {CR})
 
-%%% Access control phase
-    /\ Rdr' := new() /\ TSdr' := new()
-    /\ Adr' := H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr')
-    /\ Adr1' := F(Adr'.G)
+%%% Receive message Msg1 from the DR1 via public channel
+2. State = 3 /\ Rcv(IDdrj1.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1').G).
+                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSj1')=|>
+State' := 5 /\ Rj2' := new() /\ TSj2' := new()
+            /\ Bsmallj2' := H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2')
+            /\ Bj2' := F(Bsmallj2'.G)
+            /\ DKj2j1' := F(Bsmallj2'.F(H(IDdrj1.H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G))
+            /\ SKj2j1' := H(DKj2j1'.Poly(IDdrj2.IDdrj1). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
+                Add(Rj2'.H(IDdrj2.F(Rj2'.G).F(Rcr'.G)).Rcr'). TSj1'.TSj2')
 
-%%% Send message Msg1 to GSS via public channel
-    /\ Snd(IDdrj.Adr1'.Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSdr')
-
-%% DRj has freshly generated the values rdrk and TSdrk for GSS that are induded in Msg1
-    /\ witness(DR, GSS, dr_gss_rdr, Rdr')
-    /\ witness(DR, GSS, dr_gss_tsdr, TSdr')
-
-%%% Receive message Msg2 from the GSS via public channel
-2. State = 2 /\ Rcv(IDgss.F(H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss').G).
-                H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
-                Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr).
-                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'. TSgss').
-                F(H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss').G).TSgss'.IDgss).
-                TSgss'.Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr')) =|>
-
-State' := 4 /\ TSdr1' := new()
-        /\ ACKdrgss' := H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G)).
-            Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
-            Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr').TSdr'.TSgss').TSdr1')
-
-%%% Send message Msqg3 to GSS via public channel
-        /\ Snd(ACKdrgss'.TSdr1')
-
-%% DRj has freshly generated the value TSdr1 for GSS that is included in Msg3
-        /\ witness(DR, GSS, dr_gss_tsdr1, TSdr1')
-
-% DRj's acceptance of the values rgss1, TSgss (message Msq2) for GSS by DRj
-        /\ request(GSS, DR, gss_dr_rgss1, Rgss1')
-        /\ request(GSS, DR, gss_dr_tsgss, TSgss')
-end role
-
-%%% GSS
-role groundserver(CR, DR, GSS: agent,
-        H: hash_func,
-        Snd, Rcv: channel(dy))
-
-% Player: GSS
-played_by GSS
-def=
-local State: nat,
-            SKcrgss: symmetric_key,
-%%% F is ECC point mutiplication operation
-            F, Add: hash_func,
-            Poly: hash_func,
-            G, MKdrj, Rdrj, Pubdrj : text,
-            IDdrj, IDgss, IDcr, Rgss, RTSgss, Rcr: text,
-            RTSdrj, Rdr, TSdr, Rgss1, TSgss, DKgss, Bgss, Bgss12: text,
-            SKgssdr, SKVgssdr, TSdr1: text
-
-const sp1, sp2, dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1, gss_dr_rgss1, gss_dr_tsgss: protocol_id
-
-init State := 0
-transition
-%%% GSS registration phase
-%%% receive registration message securely from the CR
-1. State = 0 /\ Rcv({IDdrj.IDgss. H(IDgss.IDcr.Rgss'.RTSgss').
-                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr')}_SKcrgss) =|>
-State' := 3 /\ secret({RTSgss',Rgss'}, sp2, {CR})
-
-%%% Access control phase
-%%% Receive message Msq1 from the DRj via public channel
-2. State = 3 /\ Rcv(IDdrj.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G).
-                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSdr')=|>
-State' := 5 /\ Rgss1' := new() /\ TSgss' := new()
-            /\ Bgss' := H(IDgss.H(IDgss.IDcr.Rgss'.RTSgss').Rgss1'.TSgss')
-            /\ Bgss12' := F(Bgss'.G)
-            /\ DKgss' := F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'. TSdr').G))
-            /\ SKgssdr' := H(DKgss'.Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
-                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'.TSgss')
-
-            /\ SKVgssdr' := H(SKgssdr'.Bgss12'.TSgss'.IDgss)
-%%% Send message Msg? to the drone via public channel
-            /\ Snd(IDgss.Bgss12'.SKVgssdr'.TSgss'.Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'))
-%% GSS has freshly generated the values rgss1 and TSgss for DRj that are induded in Msg2
-            /\ witness(GSS, DR, gss_dr_rgss1, Rgss1')
-            /\ witness(GSS, DR, gss_dr_tsgss, TSgss')
+            /\ SKVj2j1' := H(SKj2j1'.Bj2'.TSj2'.IDdrj2)
+            /\ Msgd1d2' := IDdrj2.Bj2'.SKVj2j1'.TSj2'.Add(Rj2'.H(IDdrj2.F(Rj2'.G).F(Rcr'.G)).Rcr')
+%%% Send message Msg2 to the drone via public channel
+            /\ Snd(Msgd1d2')
+%% Drone 2 has freshly generated the values rgss1 and TSgss for DRj that are induded in Msg2
+            /\ witness(DR2, DR1, dr2_dr1_rj2, Rj2')
+            /\ witness(DR2, DR1, dr2_dr1_tsj2, TSj2')
 
 %%% Receive message Msg3 from the drone via public channel
-3. State = 5 /\ Rcv(H(H(F(Bgss'.F(H(IDdrj.H(MKdrj.IDdrj.IDcr.IDgss.RTSdrj').Rdr'.TSdr').G)).
-                Poly(IDgss.IDdrj). Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').
-                Add(Rgss'.H(IDgss.F(Rgss'.G).F(Rcr'.G)).Rcr'). TSdr'.TSgss').TSdr1').TSdr1') =|>
+3. State = 5 /\ Rcv(H(H(F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
+                Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
+                Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj1').TSj1') =|>
 
 % GSS's acceptance of the values rdr, TSdr (message Msg1) and TSdr1 (message Msg3) for GSS by DRj
 
-State' := 7 /\ request(DR, GSS, dr_gss_rdr, Rdr')
-        /\ request(DR, GSS, dr_gss_tsdr, TSdr')
-        /\ request(DR, GSS, dr_gss_tsdr1, TSdr1')
+State' := 7 /\ request(DR1, DR2, dr1_dr2_rj1, Rj1')
+        /\ request(DR1, DR2, dr1_dr2_tsj1, TSj1')
 end role
 
-%%% Role for the session
 
-role session (CR, DR, GSS: agent,
-            H: hash_func)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Session %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+role session (CR, DR1, DR2: agent, H: hash_func)
 def=
     local Sn1, Sn2, Sn3, Rv1, Rv2, Rv3: channel (dy)
     composition
-        controlroom (CR, DR, GSS, H, Sn1, Rv1)
-        /\ drone (CR, DR, GSS, H, Sn2, Rv2)
-        /\ groundserver (CR, DR, GSS, H, Sn3, Rv3)
+        controlroom (CR, DR1, DR2, H, Sn1, Rv1)
+        /\ drone1 (CR, DR1, DR2, H, Sn2, Rv2)
+        /\ drone2 (CR, DR1, DR2, H, Sn3, Rv3)
 end role
 
-%%% Role for the goal and environment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Environment %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 role environment()
 def=
-    const cr, dr, gss: agent,
+    const cr, dr1, dr2: agent,
         h, f, add, poly: hash_func,
-        tsdr, tsdr1, tsgss: text,
-        sp1, sp2, dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1, gss_dr_rgss1, gss_dr_tsgss: protocol_id
+        tsj1, tsj2, tsj3: text,
+        sp1, sp2, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
 
-    intruder_knowledge = {cr, dr, gss, h, f, add, poly, tsdr, tsdr1, tsgss}
+    intruder_knowledge = {cr, dr1, dr2, h, f, add, poly, tsj1, tsj2, tsj3}
 
     composition
-        session(cr, dr, gss, h)
-        /\ session(cr, i, gss, h)
-        /\session(cr, dr, i, h)
+        session(cr, dr1, dr2, h)
+        /\ session(cr, dr1, i, h)
+        /\session(cr, i, dr2, h)
     end role
 goal
+
 %%% Confidentiality (privacy)
 secrecy_of sp1, sp2
 
 %%% Authentication
-authentication_on dr_gss_rdr, dr_gss_tsdr, dr_gss_tsdr1
-authentication_on gss_dr_rgss1, gss_dr_tsgss
+authentication_on dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_tsj2, dr2_dr1_rj2, dr1_dr2_tsj3
+
 end goal
+
 environment()
