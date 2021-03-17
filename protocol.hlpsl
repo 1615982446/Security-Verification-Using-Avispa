@@ -1,182 +1,181 @@
-%%% Blockchain-based access control scheme in IoT-enabled Internet of Drones
+%%% Blockchain-based access control scheme in IoT-enabled Internet of Drones - Drone to Drone communication
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Control Room %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 role controlroom(CR, DRj1, DRj2: agent, H: hash_func,  Snd, Rcv: channel(dy)) 
+    played_by CR
+    def= 
+    local State: nat,
+        Key1, Key2: symmetric_key, 
+        EccMul, Add: hash_func, 
+        Rcr, Pubcr, RTSdrj1, RTSdrj2, TCdrj1, TCdrj2, IDdrj1, IDdrj2, IDcr, Certdrj1, IDgss, Certdrj2: text,
+        G, MKdrj1, MKdrj2, Rdrj1, Rdrj2, Pubdrj1, Pubdrj2: text
+    const secret1, secret2: protocol_id 
 
-played_by CR
-def= 
-local State: nat,
-    SKcrdr1, SKcrdr2: symmetric_key, 
-    F, Add: hash_func, 
-    Rcr, Pubcr, RTSdrj1, RTSdrj2, TCdrj1, TCdrj2, IDdrj1, IDdrj2, IDcr, Certdrj1, IDgss, Certdrj2: text,
-    G, MKdrj1, MKdrj2, Rdrj1, Rdrj2, Pubdrj1, Pubdrj2: text
-const sp1, sp2: protocol_id 
+    init State := 0
+    transition
 
-init State := 0
-transition
+    %%% Drone registration phase 
 
-%%%Drone registration phase 
+    1.State = 0 /\ Rcv(start) =|>
+    State' := 1 /\ Rcr' := new() /\ Pubcr' := EccMul(Rcr'.G) /\ IDgss' := new()
+                /\ Rdrj1' := new() /\ RTSdrj1' := new() /\ Pubdrj1' := EccMul(Rdrj1'.G)
+                /\ TCdrj1' := H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj1')
+                /\ Certdrj1' := Add(Rdrj1'.H(Pubdrj1'.Pubcr'.IDgss).Rcr')
+    %%% Send registration message to DR1
+                /\ Snd({IDdrj1.IDgss.TCdrj1'.Certdrj1'}_Key1)
+                /\ secret({Rcr',Rdrj1',RTSdrj1',MKdrj1}, secret1, {CR})
 
-1.State = 0 /\ Rcv(start) =|>
-State' := 1 /\ Rcr' := new() /\ Pubcr' := F(Rcr'.G) /\ IDgss' := new()
-            /\ Rdrj1' := new() /\ RTSdrj1' := new() /\ Pubdrj1' := F(Rdrj1'.G)
-            /\ TCdrj1' := H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj1')
-            /\ Certdrj1' := Add(Rdrj1'.H(Pubdrj1'.Pubcr'.IDgss).Rcr')
-%%% Send registration message to DR1
-            /\ Snd({IDdrj1.IDgss.TCdrj1'.Certdrj1'}_SKcrdr1)
-            /\ secret({Rcr',Rdrj1',RTSdrj1',MKdrj1}, sp1, {CR})
-
-            /\ Rdrj2' := new() /\ RTSdrj2' := new() /\ Pubdrj2' := F(Rdrj2'.G)
-            /\ TCdrj2' := H(MKdrj2.IDdrj2.IDcr.IDgss.RTSdrj2')
-            /\ Certdrj2' := Add(Rdrj2'.H(Pubdrj2'.Pubcr'.IDgss).Rcr')
-%%% Send registration message to DR1
-            /\ Snd({IDdrj2.IDgss.TCdrj2'.Certdrj2'}_SKcrdr2)
-            /\ secret({Rcr',Rdrj2',RTSdrj2',MKdrj2}, sp2, {CR})
-
-    end role
+                /\ Rdrj2' := new() /\ RTSdrj2' := new() /\ Pubdrj2' := EccMul(Rdrj2'.G)
+                /\ TCdrj2' := H(MKdrj2.IDdrj2.IDcr.IDgss.RTSdrj2')
+                /\ Certdrj2' := Add(Rdrj2'.H(Pubdrj2'.Pubcr'.IDgss).Rcr')
+    %%% Send registration message to DR1
+                /\ Snd({IDdrj2.IDgss.TCdrj2'.Certdrj2'}_Key2)
+                /\ secret({Rcr',Rdrj2',RTSdrj2',MKdrj2}, secret2, {CR})
+end role
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 role drone1(CR, DR1, DR2: agent, H: hash_func, Snd, Rcv: channel(dy))
 
-played_by DR1
-def=
-local State: nat,
-    SKcrdr1: symmetric_key,
-    F, Add, Poly: hash_func,
-    G, MKdrj, Rj1, Rdrj, TSj1, IDdrj1, IDdrj2, IDgss, IDcr, RTSdrj, Rcr, Aj1, AAj1, Rdr, Msgd2d1: text,
-    Rj2, TSj2, TSj3, Bj2, ACKj1j2: text
-const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
+    played_by DR1
+    def=
+    local State: nat,
+        Key1: symmetric_key,
+        EccMul, Add, Poly: hash_func,
+        G, MKdrj, Rj1, Rdrj, TSj1, IDdrj1, IDdrj2, IDgss, IDcr, RTSdrj, Rcr, Aj1, AAj1, Rdr, Msgd2d1: text,
+        Rj2, TSj2, TSj3, Bj2, ACKj1j2, Msgd2d3: text
+    const secret1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
 
-init State := 0
-transition
+    init State := 0
+    transition
 
-%%%Receive registration message from CR
+    %%%Receive registration message from CR
 
-1. State = 0 /\ Rcv({IDdrj1.IDgss.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').
-                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr1) =|>
-State' := 2 /\ Rj1' := new() /\ TSj1' := new()
-            /\ Aj1' := H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1')
-            /\ AAj1' := F(Aj1'.G)
-            /\ Msgd2d1' := IDdrj1.AAj1'.Add(Rdrj'.H(F(Rdrj'.G).IDgss.F(Rcr'.G)).Rcr').TSj1'
+    1. State = 0 /\ Rcv({IDdrj1.IDgss.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').
+                    Add(Rdrj'.H(EccMul(Rdrj'.G).EccMul(Rcr'.G).IDgss).Rcr')}_Key1) =|>
+    State' := 1 /\ Rj1' := new() /\ TSj1' := new()
+                /\ Aj1' := H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1')
+                /\ AAj1' := EccMul(Aj1'.G)
+                /\ Msgd2d1' := IDdrj1.AAj1'.Add(Rdrj'.H(EccMul(Rdrj'.G).IDgss.EccMul(Rcr'.G)).Rcr').TSj1'
 
-%%% Send message Msg1 to DR2
-    /\ Snd(Msgd2d1')
+    %%% Send message Msgd2d1 to DR2
+        /\ Snd(Msgd2d1')
 
-    /\ witness(DR1, DR2, dr1_dr2_rj1, Rj1')
-    /\ witness(DR1, DR2, dr1_dr2_tsj1, TSj1')
+    %%% Receive message Msgd2d2 from the DR2
+    2. State = 2 /\ Rcv(IDdrj2.EccMul(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).
+                    H(H(EccMul(Bj2'.EccMul(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G)).
+                    Poly(IDdrj2.IDdrj1). Add(Rj1'.H(EccMul(Rj1'.G).EccMul(Rcr'.G).IDgss).Rcr).
+                    Add(Rj2'.H(IDgss.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr'). TSj1'. TSj2').
+                    EccMul(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).TSj2'.IDdrj2).
+                    TSj2'.Add(Rj2'.H(IDgss.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr')) =|>
 
-%%% Receive message Msg2 from the DR2
-2. State = 2 /\ Rcv(IDdrj2.F(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).
-                H(H(F(Bj2'.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G)).
-                Poly(IDdrj2.IDdrj1). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr).
-                Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr'). TSj1'. TSj2').
-                F(H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2').G).TSj2'.IDdrj2).
-                TSj2'.Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr')) =|>
+    State' := 3 /\ TSj3' := new()
+            /\ ACKj1j2' := H(H(EccMul(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
+                Poly(IDdrj1.IDdrj2). Add(Rj1'.H(EccMul(Rj1'.G).EccMul(Rcr'.G).IDgss).Rcr').
+                Add(Rj2'.H(IDgss.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr').TSj1'.TSj2').TSj3')
+            /\ Msgd2d3' := ACKj1j2'.TSj3'
 
-State' := 4 /\ TSj3' := new()
-        /\ ACKj1j2' := H(H(F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
-            Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
-            Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj3')
+    %%% Send message Msgd2d3 to DR2
+            /\ Snd(Msgd2d3')
+            
+            /\ witness(DR1, DR2, dr1_dr2_rj1, Rj1')
+            /\ witness(DR1, DR2, dr1_dr2_tsj1, TSj1')
+            /\ witness(DR1, DR2, dr1_dr2_tsj3, TSj3')
 
-%%% Send message Msg3 to DR2
-        /\ Snd(ACKj1j2'.TSj3')
-
-        /\ witness(DR1, DR2, dr1_dr2_tsj3, TSj3')
-        /\ request(DR2, DR1, dr2_dr1_rj2, Rj2')
-        /\ request(DR2, DR1, dr2_dr1_tsj2, TSj2')
-        
+            /\ request(DR1, DR2, dr2_dr1_rj2, Rj2')
+            /\ request(DR1, DR2, dr2_dr1_tsj2, TSj2')
 end role
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-role drone2(CR, DR1, DR2: agent,
-            H: hash_func,
-            Snd, Rcv: channel(dy))
-% Player: Drone DRj
 
-played_by DR2
-def=
-local State: nat,
-    SKcrdr: symmetric_key,
-    F, Add, Poly: hash_func,
-    G, MKdrj, Rj1, Rdrj, IDdrj1, IDdrj2, IDgss, IDcr, Rcr, DKj2j1, SKj2j1: text,
-    TSj2, Bj2, Bsmallj2, Rj2, Rdr, Msgd1d2, MKdrj1, RTSdrj, SKVj2j1, TSj1: text
-const sp1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2 : protocol_id
+role drone2(CR, DR1, DR2: agent, H: hash_func, Snd, Rcv: channel(dy))
 
-init State := 0
-transition
+    played_by DR2
+    def=
+    local State: nat,
+        Key2: symmetric_key,
+        EccMul, Add, Poly: hash_func,
+        G, MKdrj, Rj1, Rdrj, IDdrj1, IDdrj2, IDgss, IDcr, Rcr, DKj2j1, SKj2j1: text,
+        TSj2, TSj3, Bj2, Bsmallj2, Rj2, Rdr, Msgd1d2, MKdrj1, RTSdrj, SKVj2j1, TSj1: text
+    const secret1, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2 : protocol_id
 
-%%%Receive registration message CR
+    init State := 0
+    transition
 
-1. State = 0 /\ Rcv({IDdrj2.IDgss.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').
-                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr')}_SKcrdr) =|>
-State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, sp1, {CR})
+    %%%Receive registration message CR
 
-%%% Receive message Msg1 from the DR1
-2. State = 3 /\ Rcv(IDdrj1.F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1').G).
-                Add(Rdrj'.H(F(Rdrj'.G).F(Rcr'.G).IDgss).Rcr').TSj1')=|>
-State' := 5 /\ Rj2' := new() /\ TSj2' := new()
-            /\ Bsmallj2' := H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2')
-            /\ Bj2' := F(Bsmallj2'.G)
-            /\ DKj2j1' := F(Bsmallj2'.F(H(IDdrj1.H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G))
-            /\ SKj2j1' := H(DKj2j1'.Poly(IDdrj2.IDdrj1). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
-                Add(Rj2'.H(IDdrj2.F(Rj2'.G).F(Rcr'.G)).Rcr'). TSj1'.TSj2')
+    1. State = 0 /\ Rcv({IDdrj2.IDgss.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').
+                    Add(Rdrj'.H(EccMul(Rdrj'.G).EccMul(Rcr'.G).IDgss).Rcr')}_Key2) =|>
+    State' := 2 /\ secret({Rcr',Rdrj', RTSdrj',MKdrj}, secret1, {CR})
 
-            /\ SKVj2j1' := H(SKj2j1'.Bj2'.TSj2'.IDdrj2)
-            /\ Msgd1d2' := IDdrj2.Bj2'.SKVj2j1'.TSj2'.Add(Rj2'.H(IDdrj2.F(Rj2'.G).F(Rcr'.G)).Rcr')
+    %%% Receive message Msgd2d1 from the DR1
+    2. State = 3 /\ Rcv(IDdrj1.EccMul(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rdr'.TSj1').G).
+                    Add(Rdrj'.H(EccMul(Rdrj'.G).EccMul(Rcr'.G).IDgss).Rcr').TSj1')=|>
+    State' := 4 /\ Rj2' := new() /\ TSj2' := new()
+                /\ Bsmallj2' := H(IDdrj2.H(MKdrj.IDdrj2.IDcr.IDgss.RTSdrj').Rj2'.TSj2')
+                /\ Bj2' := EccMul(Bsmallj2'.G)
+                /\ DKj2j1' := EccMul(Bsmallj2'.EccMul(H(IDdrj1.H(MKdrj1.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'.TSj1').G))
+                /\ SKj2j1' := H(DKj2j1'.Poly(IDdrj2.IDdrj1). Add(Rj1'.H(EccMul(Rj1'.G).EccMul(Rcr'.G).IDgss).Rcr').
+                    Add(Rj2'.H(IDdrj2.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr'). TSj1'.TSj2')
 
-%%% Send message Msg2 to DR1
-            /\ Snd(Msgd1d2')
+                /\ SKVj2j1' := H(SKj2j1'.Bj2'.TSj2'.IDdrj2)
+                /\ Msgd1d2' := IDdrj2.Bj2'.SKVj2j1'.TSj2'.Add(Rj2'.H(IDdrj2.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr')
 
-            /\ witness(DR2, DR1, dr2_dr1_rj2, Rj2')
-            /\ witness(DR2, DR1, dr2_dr1_tsj2, TSj2')
+    %%% Send message Msgd2d2 to DR1
+                /\ Snd(Msgd1d2')
 
-%%% Receive message Msg3 from DR1
-3. State = 5 /\ Rcv(H(H(F(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
-                Poly(IDdrj1.IDdrj2). Add(Rj1'.H(F(Rj1'.G).F(Rcr'.G).IDgss).Rcr').
-                Add(Rj2'.H(IDgss.F(Rj2'.G).F(Rcr'.G)).Rcr').TSj1'.TSj2').TSj1').TSj1') =|>
+    %%% Receive message Msgd2d3 from DR1
+    3. State = 4 /\ Rcv(H(H(EccMul(H(IDdrj1.H(MKdrj.IDdrj1.IDcr.IDgss.RTSdrj').Rj1'. TSj1').G).
+                    Poly(IDdrj1.IDdrj2). Add(Rj1'.H(EccMul(Rj1'.G).EccMul(Rcr'.G).IDgss).Rcr').
+                    Add(Rj2'.H(IDgss.EccMul(Rj2'.G).EccMul(Rcr'.G)).Rcr').TSj1'.TSj2').TSj1').TSj1') =|>
 
-State' := 7 /\ request(DR1, DR2, dr1_dr2_rj1, Rj1')
-            /\ request(DR1, DR2, dr1_dr2_tsj1, TSj1')
+    State' := 5 /\ witness(DR2, DR1, dr2_dr1_rj2, Rj2')
+                /\ witness(DR2, DR1, dr2_dr1_tsj2, TSj2')
+
+                /\ request(DR2, DR1, dr1_dr2_rj1, Rj1')
+                /\ request(DR2, DR1, dr1_dr2_tsj1, TSj1')
+                /\ request(DR2, DR1, dr1_dr2_tsj3, TSj3')
 end role
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Session %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 role session (CR, DR1, DR2: agent, H: hash_func)
-def=
-    local Sn1, Sn2, Sn3, Rv1, Rv2, Rv3: channel (dy)
+    def=
+    local Snd1, Snd2, Snd3, Rcv1, Rcv2, Rcv3: channel (dy)
     composition
-        controlroom (CR, DR1, DR2, H, Sn1, Rv1)
-        /\ drone1 (CR, DR1, DR2, H, Sn2, Rv2)
-        /\ drone2 (CR, DR1, DR2, H, Sn3, Rv3)
+        controlroom (CR, DR1, DR2, H, Snd1, Rcv1)
+        /\ drone1 (CR, DR1, DR2, H, Snd2, Rcv2)
+        /\ drone2 (CR, DR1, DR2, H, Snd3, Rcv3)
 end role
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Environment %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 role environment()
-def=
+    def=
     const cr, dr1, dr2: agent,
-        h, f, add, poly: hash_func,
+        h, eccMul, add, poly: hash_func,
         tsj1, tsj2, tsj3: text,
-        sp1, sp2, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
+        secret1, secret2, dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_rj2, dr2_dr1_tsj2, dr1_dr2_tsj3 : protocol_id
 
-    intruder_knowledge = {cr, dr1, dr2, h, f, add, poly, tsj1, tsj2, tsj3}
+    intruder_knowledge = {cr, dr1, dr2, h, eccMul, add, poly, tsj1, tsj2, tsj3}
 
     composition
         session(cr, dr1, dr2, h)
         /\ session(cr, dr1, i, h)
         /\session(cr, i, dr2, h)
-    end role
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Goal %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 goal
+    %%% Authentication
+    authentication_on dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_tsj2, dr2_dr1_rj2, dr1_dr2_tsj3
 
-%%% Authentication
-authentication_on dr1_dr2_rj1, dr1_dr2_tsj1, dr2_dr1_tsj2, dr2_dr1_rj2, dr1_dr2_tsj3
-
-%%% Confidentiality
-secrecy_of sp1, sp2
-
+    %%% Confidentiality
+    secrecy_of secret1, secret2
 end goal
 
 environment()
